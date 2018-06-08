@@ -6,7 +6,7 @@
 #define Y_MIN_PIN          14
 #define Y_MAX_PIN          15
 #define Z_MIN_PIN          18
-#define Z_MAX_PIN          19
+#define Z_MAX_PIN          19       
 
 // Definicja zmiennych globalnych, w których zapisywane są stany krańcówek (0 lub 1)
 int xMaxPinValue;
@@ -32,12 +32,15 @@ int zMaxPinValue;
 #define Z_CS_PIN           40
 
 // Zdefiniowana ilość kroków, które ma wykonać każdy z silników
-int x_steps = 500;
-int y_steps = 500;
-int z_steps = 500;
+int x_steps = 0;
+int y_steps = 0;
+int z_steps = 0;
 
 // Zmienna pomocnicza wykorzystywana przy wpisywaniu ilości kroków do wykonania
-int tmp = 0;
+String s;
+
+// Flaga sygnalizujaca rozpoczecie ruchu
+bool moving = false;
 
 void setup() {
   // put your setup code here, to run once:
@@ -85,6 +88,23 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly
+
+  int motorsReleased = 0;
+  motorsReleased = digitalRead(X_MIN_PIN);
+  if (motorsReleased == 1)
+  {
+     digitalWrite(X_ENABLE_PIN, LOW); 
+     digitalWrite(Y_ENABLE_PIN, LOW); 
+     digitalWrite(Z_ENABLE_PIN, LOW); 
+  }
+  else
+  {
+    digitalWrite(X_ENABLE_PIN, HIGH); 
+    digitalWrite(Y_ENABLE_PIN, HIGH); 
+    digitalWrite(Z_ENABLE_PIN, HIGH); 
+    Serial.println("Tryb reczny");
+    delay(100);
+  }
   
   // Odczyt wartości krańcówki X (w kolejnych liniach Y i Z)
   xMaxPinValue = digitalRead(X_MAX_PIN);
@@ -130,16 +150,51 @@ void loop() {
   digitalWrite(Z_STEP_PIN, LOW);
   delayMicroseconds(1000);
 
-  // TODO: Naprawić poniższy kod, odpowiedzialny za wybór w terminalu ilości kroków do wykonania z klawiatury
-  while(Serial.available())
+  //Wybór w terminalu ilości kroków do wykonania z klawiatury, działa po wysłaniu komendy przez terminal
+  while(Serial.available()>0)
   {
-    tmp = Serial.parseInt();
-    if(tmp > 0)
+    //Wczytanie wartości do odpowiednich zmiennych
+    s = Serial.readStringUntil('\n');
+    sscanf(s.c_str(),"X:%d Y:%d Z:%d",&x_steps, &y_steps, &z_steps);
+    moving = true;
+
+    // Jezeli wartosc jest mniejsza od zera, zmienia kierunek ruchu i ustawia wartosc na dodatnia
+    if (x_steps < 0)
     {
-      x_steps = tmp;
-      y_steps = tmp;
-      z_steps = tmp;
+      digitalWrite(X_DIR_PIN, HIGH);
+      x_steps = -x_steps;
     }
+    else
+    {
+      digitalWrite(X_DIR_PIN, LOW);
+    }
+
+    if (y_steps < 0)
+    {
+      digitalWrite(Y_DIR_PIN, HIGH);
+      y_steps = -y_steps;
+    }
+    else
+    {
+      digitalWrite(Y_DIR_PIN, LOW);
+    }
+
+    if (z_steps < 0)
+    {
+      digitalWrite(Z_DIR_PIN, HIGH);
+      z_steps = -z_steps;
+    }
+    else
+    {
+      digitalWrite(Z_DIR_PIN, LOW);
+    }
+    
   }
 
+  if (moving == true && x_steps == 0 && y_steps == 0 && z_steps == 0)
+  {
+    moving = false;
+    Serial.println("OK");
+  }
+  
 }
